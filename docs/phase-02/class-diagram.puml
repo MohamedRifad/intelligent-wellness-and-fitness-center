@@ -1,0 +1,150 @@
+@startuml
+title Intelligent Wellness and Fitness Center Planned Class Diagram
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "iwfc.domain" {
+  abstract class User {
+    - id: String
+    - name: String
+    - role: Role
+    - active: boolean
+    - notifications: List<String>
+    + deactivate(): void
+    + receiveNotification(message: String): void
+    + getRoleDescription(): String
+  }
+
+  class Administrator
+  class Instructor
+  class Member
+
+  class Equipment {
+    - id: String
+    - name: String
+    - location: String
+    - status: Status
+    - cumulativeUsageHours: double
+    - active: boolean
+    + updateDetails(name: String, location: String): void
+    + deactivate(): void
+    + addUsageHours(hours: double): void
+    + requiresPreventativeMaintenance(threshold: double): boolean
+    + isAvailableForScheduling(): boolean
+  }
+
+  class FitnessSession {
+    - id: String
+    - title: String
+    - instructorId: String
+    - studio: String
+    - startTime: LocalDateTime
+    - endTime: LocalDateTime
+    - capacity: int
+    - equipmentIds: List<String>
+    - bookedMemberIds: Set<String>
+    + overlaps(other: FitnessSession): boolean
+    + hasCapacity(): boolean
+    + addMember(memberId: String): void
+  }
+
+  class MaintenanceRequest {
+    - id: String
+    - equipmentId: String
+    - description: String
+    - urgency: Urgency
+    - status: Status
+    - reportedByInstructorId: String
+    - assignedTo: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + assignTo(assignee: String): void
+    + complete(): void
+  }
+}
+
+package "iwfc.repository" {
+  class "GenericRepository<T>" as GenericRepository {
+    - items: Map<String, T>
+    - idExtractor: Function<T, String>
+    + add(item: T): void
+    + findById(id: String): Optional<T>
+    + findAll(): List<T>
+    + containsId(id: String): boolean
+  }
+}
+
+package "iwfc.pattern" {
+  class EntityFactory <<Factory>> {
+    + createUser(role: Role, id: String, name: String): User
+    + createEquipment(id: String, name: String, location: String): Equipment
+  }
+}
+
+package "iwfc.service" {
+  class BookingService {
+    + scheduleSession(...): FitnessSession
+    + bookSession(memberId: String, sessionId: String): void
+    + findAvailableSessions(): List<FitnessSession>
+    + recordSessionUsage(sessionId: String, hours: double): void
+  }
+
+  class MaintenanceService <<Observer Subject>> {
+    - observers: List<User>
+    + registerObserver(user: User): void
+    + reportFault(...): MaintenanceRequest
+    + assignRequest(...): void
+    + completeRequest(...): void
+    + checkUsageAlert(equipmentId: String): boolean
+  }
+}
+
+package "iwfc.app" {
+  class IWFCFacade <<Facade>> {
+    + registerUser(...): User
+    + addEquipment(...): Equipment
+    + scheduleSession(...): FitnessSession
+    + bookSession(...): void
+    + reportFault(...): MaintenanceRequest
+    + assignMaintenance(...): void
+    + completeMaintenance(...): void
+    + main(args: String[]): void
+  }
+}
+
+package "iwfc.exception" {
+  class InvalidBookingException
+  class UnauthorizedAccessException
+  class DuplicateDataException
+}
+
+User <|-- Administrator
+User <|-- Instructor
+User <|-- Member
+FitnessSession "*" --> "1" Instructor : instructorId
+FitnessSession "*" --> "0..*" Equipment : equipmentIds
+FitnessSession "*" --> "0..*" Member : bookedMemberIds
+MaintenanceRequest "*" --> "1" Equipment : equipmentId
+MaintenanceRequest "*" --> "1" Instructor : reporterId
+EntityFactory ..> User : creates
+EntityFactory ..> Equipment : creates
+BookingService --> GenericRepository
+MaintenanceService --> GenericRepository
+MaintenanceService o--> User : notifies
+IWFCFacade *--> BookingService
+IWFCFacade *--> MaintenanceService
+IWFCFacade *--> EntityFactory
+IWFCFacade *--> GenericRepository
+GenericRepository ..> DuplicateDataException
+BookingService ..> InvalidBookingException
+BookingService ..> DuplicateDataException
+IWFCFacade ..> UnauthorizedAccessException
+
+note right of User
+  Observer role:
+  receiveNotification()
+  is called polymorphically.
+end note
+
+@enduml
