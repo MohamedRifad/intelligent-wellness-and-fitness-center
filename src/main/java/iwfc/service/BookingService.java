@@ -9,6 +9,7 @@ import iwfc.repository.GenericRepository;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -42,6 +43,51 @@ public final class BookingService {
                                           LocalDateTime endTime, int capacity,
                                           Collection<String> equipmentIds)
             throws InvalidBookingException, DuplicateDataException {
+        FitnessSession candidate = prepareSession(sessionId, title, instructorId, studio,
+                startTime, endTime, capacity, equipmentIds, List.of());
+        sessionRepository.add(candidate);
+        return candidate;
+    }
+
+    /**
+     * Validates and creates an all-or-nothing weekly series with IDs based on
+     * {@code baseId-W1}, {@code baseId-W2}, and so on.
+     */
+    public List<FitnessSession> scheduleWeeklySessions(String baseId, String title,
+                                                        String instructorId, String studio,
+                                                        LocalDateTime firstStart,
+                                                        LocalDateTime firstEnd, int capacity,
+                                                        Collection<String> equipmentIds, int weeks)
+            throws InvalidBookingException, DuplicateDataException {
+        if (weeks < 1 || weeks > 12) {
+            throw new InvalidBookingException("Recurring weeks must be between 1 and 12");
+        }
+        String validatedBaseId;
+        try {
+            validatedBaseId = requireText(baseId, "Recurring session base ID");
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidBookingException(exception.getMessage());
+        }
+        List<FitnessSession> candidates = new ArrayList<>();
+        for (int week = 1; week <= weeks; week++) {
+            long offset = week - 1L;
+            FitnessSession candidate = prepareSession(validatedBaseId + "-W" + week, title,
+                    instructorId, studio, shiftWeeks(firstStart, offset),
+                    shiftWeeks(firstEnd, offset), capacity, equipmentIds, candidates);
+            candidates.add(candidate);
+        }
+        for (FitnessSession candidate : candidates) {
+            sessionRepository.add(candidate);
+        }
+        return List.copyOf(candidates);
+    }
+
+    private FitnessSession prepareSession(String sessionId, String title, String instructorId,
+                                           String studio, LocalDateTime startTime,
+                                           LocalDateTime endTime, int capacity,
+                                           Collection<String> equipmentIds,
+                                           Collection<FitnessSession> pendingSessions)
+            throws InvalidBookingException, DuplicateDataException {
         validateOperatingHours(startTime, endTime);
         User instructor = requireActiveUser(instructorId, User.Role.INSTRUCTOR, "Instructor");
 
@@ -58,9 +104,16 @@ public final class BookingService {
         }
 
         validateEquipmentState(candidate);
-        validateScheduleConflicts(candidate);
-        sessionRepository.add(candidate);
+        validateScheduleConflicts(candidate, pendingSessions);
         return candidate;
+    }
+
+    private LocalDateTime shiftWeeks(LocalDateTime dateTime, long weeks)
+            throws InvalidBookingException {
+        if (dateTime == null) {
+            throw new InvalidBookingException("Session start and end times are required");
+        }
+        return dateTime.plusWeeks(weeks);
     }
 
     public void bookSession(String memberId, String sessionId) throws InvalidBookingException {
@@ -135,18 +188,28 @@ public final class BookingService {
         }
     }
 
-    private void validateScheduleConflicts(FitnessSession candidate) throws InvalidBookingException {
+    private void validateScheduleConflicts(FitnessSession candidate,
+                                           Collection<FitnessSession> pendingSessions)
+            throws InvalidBookingException {
         for (FitnessSession existing : sessionRepository.findAll()) {
-            if (!existing.isActive() || !candidate.overlaps(existing)) continue;
-            if (candidate.getInstructorId().equals(existing.getInstructorId())) {
-                throw new InvalidBookingException("Instructor is already scheduled at this time");
-            }
-            if (candidate.usesStudio(existing.getStudio())) {
-                throw new InvalidBookingException("Studio is already scheduled at this time");
-            }
-            if (candidate.usesAnyEquipment(existing.getEquipmentIds())) {
-                throw new InvalidBookingException("Equipment is already scheduled at this time");
-            }
+            validateConflict(candidate, existing);
+        }
+        for (FitnessSession pending : pendingSessions) {
+            validateConflict(candidate, pending);
+        }
+    }
+
+    private void validateConflict(FitnessSession candidate, FitnessSession existing)
+            throws InvalidBookingException {
+        if (!existing.isActive() || !candidate.overlaps(existing)) return;
+        if (candidate.getInstructorId().equals(existing.getInstructorId())) {
+            throw new InvalidBookingException("Instructor is already scheduled at this time");
+        }
+        if (candidate.usesStudio(existing.getStudio())) {
+            throw new InvalidBookingException("Studio is already scheduled at this time");
+        }
+        if (candidate.usesAnyEquipment(existing.getEquipmentIds())) {
+            throw new InvalidBookingException("Equipment is already scheduled at this time");
         }
     }
 

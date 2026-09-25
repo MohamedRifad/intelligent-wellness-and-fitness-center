@@ -107,6 +107,18 @@ public final class IWFCFacade {
                 startTime, endTime, capacity, equipmentIds);
     }
 
+    /** Creates an atomic weekly session series for an active registered Instructor. */
+    public List<FitnessSession> scheduleWeeklySessions(User actor, String baseId, String title,
+                                                        LocalDateTime firstStart,
+                                                        LocalDateTime firstEnd, String studio,
+                                                        Collection<String> equipmentIds,
+                                                        int capacity, int weeks)
+            throws UnauthorizedAccessException, InvalidBookingException, DuplicateDataException {
+        User instructor = requireRole(actor, User.Role.INSTRUCTOR);
+        return bookingService.scheduleWeeklySessions(baseId, title, instructor.getId(), studio,
+                firstStart, firstEnd, capacity, equipmentIds, weeks);
+    }
+
     public void bookSession(User actor, String sessionId)
             throws UnauthorizedAccessException, InvalidBookingException {
         User member = requireRole(actor, User.Role.MEMBER);

@@ -154,6 +154,57 @@ class BookingServiceTest {
     }
 
     @Test
+    void createsFourWeeklySessionsWithPredictableIdsAndDates() throws Exception {
+        List<FitnessSession> series = service.scheduleWeeklySessions("SERIES", "Mobility Basics",
+                "I1", "Activity Room", at(8), at(9), 6, List.of(), 4);
+
+        assertEquals(List.of("SERIES-W1", "SERIES-W2", "SERIES-W3", "SERIES-W4"),
+                series.stream().map(FitnessSession::getId).toList());
+        assertEquals(at(8).plusWeeks(3), series.get(3).getStartTime());
+        assertEquals(4, sessions.findAll().size());
+        assertThrows(UnsupportedOperationException.class, () -> series.add(series.getFirst()));
+    }
+
+    @Test
+    void recurringSeriesIsAtomicWhenLaterWeekConflicts() throws Exception {
+        schedule("CLASH", "I1", "Activity Room", at(8).plusWeeks(2),
+                at(9).plusWeeks(2), 6, List.of());
+
+        assertThrows(InvalidBookingException.class,
+                () -> service.scheduleWeeklySessions("SERIES", "Mobility Basics", "I1",
+                        "Activity Room", at(8), at(9), 6, List.of(), 4));
+
+        assertEquals(List.of("CLASH"), sessions.findAll().stream()
+                .map(FitnessSession::getId).toList());
+    }
+
+    @Test
+    void rejectsRecurringWeekCountsOutsideOneToTwelve() {
+        assertThrows(InvalidBookingException.class,
+                () -> service.scheduleWeeklySessions("ZERO", "Mobility Basics", "I1",
+                        "Activity Room", at(8), at(9), 6, List.of(), 0));
+        assertThrows(InvalidBookingException.class,
+                () -> service.scheduleWeeklySessions("LONG", "Mobility Basics", "I1",
+                        "Activity Room", at(8), at(9), 6, List.of(), 13));
+        assertThrows(InvalidBookingException.class,
+                () -> service.scheduleWeeklySessions(" ", "Mobility Basics", "I1",
+                        "Activity Room", at(8), at(9), 6, List.of(), 2));
+        assertTrue(sessions.findAll().isEmpty());
+    }
+
+    @Test
+    void eachOccurrenceCanBeBookedIndependently() throws Exception {
+        service.scheduleWeeklySessions("SERIES", "Mobility Basics", "I1",
+                "Activity Room", at(8), at(9), 2, List.of(), 2);
+
+        service.bookSession("M1", "SERIES-W2");
+
+        assertEquals(List.of("SERIES-W2"), service.findSessionsForMember("M1").stream()
+                .map(FitnessSession::getId).toList());
+        assertTrue(sessions.findById("SERIES-W1").orElseThrow().getBookedMemberIds().isEmpty());
+    }
+
+    @Test
     void activeMemberBooksAndCanListOwnBookings() throws Exception {
         schedule("S1", "I1", "Room B", at(9), at(10), 2, List.of("EQ1"));
 

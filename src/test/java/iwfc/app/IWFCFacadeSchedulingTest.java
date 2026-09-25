@@ -72,6 +72,21 @@ class IWFCFacadeSchedulingTest {
     }
 
     @Test
+    void facadeAllowsInstructorButRejectsOtherRolesForRecurringSessions() throws Exception {
+        List<FitnessSession> series = facade.scheduleWeeklySessions(instructor, "SERIES",
+                "Mobility Basics", at(8), at(9), "Activity Room", List.of(), 5, 2);
+
+        assertEquals(List.of("SERIES-W1", "SERIES-W2"),
+                series.stream().map(FitnessSession::getId).toList());
+        assertThrows(UnauthorizedAccessException.class,
+                () -> facade.scheduleWeeklySessions(member, "MEMBER", "Mobility Basics",
+                        at(10), at(11), "Activity Room", List.of(), 5, 2));
+        assertThrows(UnauthorizedAccessException.class,
+                () -> facade.scheduleWeeklySessions(administrator, "ADMIN", "Mobility Basics",
+                        at(10), at(11), "Activity Room", List.of(), 5, 2));
+    }
+
+    @Test
     void activeRegisteredMemberBooksAndViewsAvailableAndOwnSessions() throws Exception {
         schedule(instructor, "S1", at(9), at(10), "Studio A", List.of("EQ1"), 2);
 
