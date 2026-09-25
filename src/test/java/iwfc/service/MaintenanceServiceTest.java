@@ -193,6 +193,39 @@ class MaintenanceServiceTest {
     }
 
     @Test
+    void completionLeavesEquipmentOperationalWhenNoOtherRequestIsOpen() throws Exception {
+        report("R1");
+        service.assignRequest("R1", "Technician A");
+
+        service.completeRequest("R1");
+
+        assertEquals(Equipment.Status.OPERATIONAL, bike.getStatus());
+    }
+
+    @Test
+    void completionLeavesEquipmentFaultyWhenAnotherRequestIsPending() throws Exception {
+        report("R1");
+        report("R2");
+        service.assignRequest("R1", "Technician A");
+
+        service.completeRequest("R1");
+
+        assertEquals(Equipment.Status.FAULTY, bike.getStatus());
+    }
+
+    @Test
+    void completionLeavesEquipmentUnderMaintenanceWhenAnotherRequestIsAssigned() throws Exception {
+        report("R1");
+        report("R2");
+        service.assignRequest("R1", "Technician A");
+        service.assignRequest("R2", "Technician B");
+
+        service.completeRequest("R1");
+
+        assertEquals(Equipment.Status.UNDER_MAINTENANCE, bike.getStatus());
+    }
+
+    @Test
     void completionNeverReactivatesDeactivatedEquipment() throws Exception {
         report("R1");
         service.assignRequest("R1", "Technician A");

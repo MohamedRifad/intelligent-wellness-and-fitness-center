@@ -75,10 +75,26 @@ public final class MaintenanceService {
         request.complete();
         Equipment equipment = requireEquipment(request.getEquipmentId());
         if (equipment.isActive()) {
-            equipment.markOperational();
+            refreshEquipmentStatus(equipment);
         }
         resetPreventativeAlertCycle(equipment);
         notifyReporter(request, "Maintenance request " + request.getId() + " completed");
+    }
+
+    private void refreshEquipmentStatus(Equipment equipment) {
+        List<MaintenanceRequest> openRequests = requestRepository.findAll().stream()
+                .filter(request -> request.getEquipmentId().equals(equipment.getId()))
+                .filter(request -> request.getStatus() != MaintenanceRequest.Status.COMPLETED)
+                .toList();
+        if (openRequests.stream().anyMatch(request ->
+                request.getStatus() == MaintenanceRequest.Status.PENDING)) {
+            equipment.markFaulty();
+        } else if (openRequests.stream().anyMatch(request ->
+                request.getStatus() == MaintenanceRequest.Status.ASSIGNED)) {
+            equipment.markUnderMaintenance();
+        } else {
+            equipment.markOperational();
+        }
     }
 
     public List<MaintenanceRequest> findAllRequests() {
