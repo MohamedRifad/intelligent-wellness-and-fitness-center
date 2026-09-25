@@ -2,12 +2,20 @@ package iwfc.app;
 
 import iwfc.domain.Administrator;
 import iwfc.domain.Equipment;
+import iwfc.domain.FitnessSession;
+import iwfc.domain.MaintenanceRequest;
 import iwfc.domain.User;
 import iwfc.exception.DuplicateDataException;
 import iwfc.exception.UnauthorizedAccessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.util.Comparator;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -210,5 +218,74 @@ class IWFCFacadeAdministrationTest {
 
         assertThrows(UnsupportedOperationException.class,
                 () -> facade.viewEquipment(administrator).add(equipment));
+    }
+
+    @Test
+    void sampleDataCreatesEveryRequiredRecordAndState() throws Exception {
+        IWFCFacade facade = new IWFCFacade();
+        User administrator = facade.initializeAdministrator("A1", "Rifad");
+
+        facade.loadSampleData(administrator);
+
+        assertEquals(8, facade.viewUsers(administrator).size());
+        List<Equipment> equipment = facade.viewEquipment(administrator);
+        assertEquals(8, equipment.size());
+        Equipment secondEquipment = equipment.stream()
+                .filter(item -> item.getId().equals("E2")).findFirst().orElseThrow();
+        Equipment thirdEquipment = equipment.stream()
+                .filter(item -> item.getId().equals("E3")).findFirst().orElseThrow();
+        assertFalse(secondEquipment.isActive());
+        assertEquals(98.0, thirdEquipment.getCumulativeUsageHours());
+
+        List<FitnessSession> sessions = facade.viewAllSessions(administrator);
+        assertEquals(7, sessions.size());
+        FitnessSession firstSession = sessions.stream()
+                .filter(session -> session.getId().equals("S1")).findFirst().orElseThrow();
+        assertEquals(2, firstSession.getBookedMemberIds().size());
+        assertEquals(firstSession.getCapacity(), firstSession.getBookedMemberIds().size());
+        List<FitnessSession> weekly = sessions.stream()
+                .filter(session -> session.getId().startsWith("S4-W"))
+                .sorted(Comparator.comparing(FitnessSession::getId))
+                .toList();
+        assertEquals(List.of("S4-W1", "S4-W2", "S4-W3", "S4-W4"),
+                weekly.stream().map(FitnessSession::getId).toList());
+        assertEquals(LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.TUESDAY)),
+                weekly.getFirst().getStartTime().toLocalDate());
+        for (int index = 1; index < weekly.size(); index++) {
+            assertEquals(weekly.get(index - 1).getStartTime().plusDays(7),
+                    weekly.get(index).getStartTime());
+        }
+
+        List<MaintenanceRequest> requests = facade.viewMaintenanceRequests(administrator);
+        assertEquals(2, requests.size());
+        assertEquals(MaintenanceRequest.Status.PENDING, requests.stream()
+                .filter(request -> request.getId().equals("R1")).findFirst().orElseThrow().getStatus());
+        assertEquals(MaintenanceRequest.Status.ASSIGNED, requests.stream()
+                .filter(request -> request.getId().equals("R2")).findFirst().orElseThrow().getStatus());
+    }
+
+    @Test
+    void secondSampleLoadIsRejectedWithoutChangingExistingData() throws Exception {
+        IWFCFacade facade = new IWFCFacade();
+        User administrator = facade.initializeAdministrator("A1", "Rifad");
+        facade.loadSampleData(administrator);
+
+        DuplicateDataException exception = assertThrows(
+                DuplicateDataException.class, () -> facade.loadSampleData(administrator));
+
+        assertEquals("Sample data already loaded", exception.getMessage());
+        assertEquals(8, facade.viewUsers(administrator).size());
+        assertEquals(8, facade.viewEquipment(administrator).size());
+        assertEquals(7, facade.viewAllSessions(administrator).size());
+        assertEquals(2, facade.viewMaintenanceRequests(administrator).size());
+    }
+
+    @Test
+    void allSessionListingRequiresAnAdministrator() throws Exception {
+        IWFCFacade facade = new IWFCFacade();
+        User administrator = facade.initializeAdministrator("A1", "Rifad");
+        User member = facade.registerUser(administrator, User.Role.MEMBER, "M9", "Reader");
+
+        assertThrows(UnauthorizedAccessException.class, () -> facade.viewAllSessions(member));
     }
 }

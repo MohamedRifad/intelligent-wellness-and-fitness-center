@@ -13,9 +13,11 @@ import iwfc.service.BookingService;
 import iwfc.service.MaintenanceService;
 
 import java.io.PrintStream;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -95,6 +97,12 @@ public final class IWFCFacade {
     public List<Equipment> viewEquipment(User actor) throws UnauthorizedAccessException {
         requireAdministrator(actor);
         return equipmentRepository.findAll();
+    }
+
+    /** Returns every scheduled session to an active registered Administrator. */
+    public List<FitnessSession> viewAllSessions(User actor) throws UnauthorizedAccessException {
+        requireAdministrator(actor);
+        return sessionRepository.findAll();
     }
 
     public FitnessSession scheduleSession(User actor, String sessionId, String title,
@@ -177,6 +185,75 @@ public final class IWFCFacade {
         return maintenanceService.checkPreventativeMaintenance(equipmentId);
     }
 
+    /** Loads the presentation dataset through the normal public Facade workflows. */
+    public void loadSampleData(User administrator)
+            throws UnauthorizedAccessException, DuplicateDataException, InvalidBookingException {
+        requireAdministrator(administrator);
+        rejectReservedIdConflicts();
+
+        User firstInstructor = registerUser(
+                administrator, User.Role.INSTRUCTOR, "I1", "Tharindu");
+        User secondInstructor = registerUser(
+                administrator, User.Role.INSTRUCTOR, "I2", "Nadeesha");
+        User firstMember = registerUser(administrator, User.Role.MEMBER, "M1", "Ishara");
+        User secondMember = registerUser(administrator, User.Role.MEMBER, "M2", "Mohamed");
+        User thirdMember = registerUser(administrator, User.Role.MEMBER, "M3", "Anjali");
+        User fourthMember = registerUser(administrator, User.Role.MEMBER, "M4", "Kavindu");
+        User fifthMember = registerUser(administrator, User.Role.MEMBER, "M5", "Mark");
+
+        addEquipment(administrator, "E1", "Elliptical", "Endurance Area");
+        addEquipment(administrator, "E2", "Stair Climber", "Endurance Area");
+        addEquipment(administrator, "E3", "Air Bike", "Training Room");
+        addEquipment(administrator, "E4", "Treadmill", "Endurance Area");
+        addEquipment(administrator, "E5", "Leg Press", "Weights Area");
+        addEquipment(administrator, "E6", "Cable Machine", "Weights Area");
+        addEquipment(administrator, "E7", "Boxing Bag", "Training Room");
+        addEquipment(administrator, "E8", "Weight Scale", "Wellness Room");
+
+        LocalDate nextTuesday = LocalDate.now().with(
+                TemporalAdjusters.next(DayOfWeek.TUESDAY));
+        scheduleSession(firstInstructor, "S1", "Boxing Class",
+                nextTuesday.atTime(18, 0), nextTuesday.atTime(19, 0),
+                "Training Room", List.of("E3", "E7"), 2);
+        scheduleSession(firstInstructor, "S2", "Leg Day",
+                nextTuesday.atTime(7, 0), nextTuesday.atTime(8, 0),
+                "Weights Area", List.of("E5", "E6"), 8);
+        scheduleSession(secondInstructor, "S3", "Cardio Mix",
+                nextTuesday.atTime(17, 0), nextTuesday.atTime(18, 0),
+                "Endurance Area", List.of("E1"), 6);
+        scheduleWeeklySessions(secondInstructor, "S4", "Weekly Stretch",
+                nextTuesday.atTime(6, 30), nextTuesday.atTime(7, 15),
+                "Wellness Room", List.of(), 10, 4);
+
+        bookSession(firstMember, "S1");
+        bookSession(secondMember, "S1");
+        bookSession(thirdMember, "S3");
+        bookSession(fourthMember, "S3");
+        bookSession(fifthMember, "S2");
+        bookSession(thirdMember, "S4-W1");
+
+        recordSessionEquipmentUsage(firstInstructor, "S1", "E3", 98.0);
+        deactivateEquipment(administrator, "E2");
+        reportFault(secondInstructor, "R1", "E4", "Treadmill belt slipping",
+                MaintenanceRequest.Urgency.LOW);
+        reportFault(secondInstructor, "R2", "E8", "Weight scale not reading",
+                MaintenanceRequest.Urgency.MEDIUM);
+        assignMaintenance(administrator, "R2", "Technician");
+    }
+
+    private void rejectReservedIdConflicts() throws DuplicateDataException {
+        boolean conflict = List.of("I1", "I2", "M1", "M2", "M3", "M4", "M5").stream()
+                .anyMatch(userRepository::containsId)
+                || List.of("E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8").stream()
+                .anyMatch(equipmentRepository::containsId)
+                || List.of("S1", "S2", "S3", "S4-W1", "S4-W2", "S4-W3", "S4-W4").stream()
+                .anyMatch(sessionRepository::containsId)
+                || List.of("R1", "R2").stream().anyMatch(maintenanceRepository::containsId);
+        if (conflict) {
+            throw new DuplicateDataException("Sample data already loaded");
+        }
+    }
+
     private User requireAdministrator(User actor) throws UnauthorizedAccessException {
         return requireRole(actor, User.Role.ADMINISTRATOR);
     }
@@ -251,6 +328,8 @@ public final class IWFCFacade {
         while (running) {
             output.println();
             output.println("1 - Run guided IWFC workflow demonstration");
+            output.println("2 - Load sample data");
+            output.println("3 - View current data");
             output.println("0 - Exit");
             output.print("Select an option: ");
             if (!scanner.hasNextLine()) {
@@ -262,8 +341,11 @@ public final class IWFCFacade {
             String choice = scanner.nextLine().trim();
             switch (choice) {
                 case "1" -> runGuidedDemonstration(facade, administrator, output);
+                case "2" -> loadSampleDataFromConsole(facade, administrator, output);
+                case "3" -> printCurrentData(facade, administrator, output);
                 case "0" -> running = false;
-                default -> output.println("[ERROR] Enter 1 to run the demo or 0 to exit.");
+                default -> output.println(
+                        "[ERROR] Enter 1 to run the demo or 0 to exit, or choose 2/3 for data options.");
             }
         }
         output.println("Thank you for using IWFC.");
@@ -340,6 +422,45 @@ public final class IWFCFacade {
         } catch (Exception exception) {
             output.println("[ERROR] Demonstration could not continue: " + exception.getMessage());
             output.println("[STATUS] The console remains available; select another option.");
+        }
+    }
+
+    private static void loadSampleDataFromConsole(IWFCFacade facade, User administrator,
+                                                  PrintStream output) {
+        try {
+            facade.loadSampleData(administrator);
+            output.println("[SUCCESS] Sample data loaded.");
+        } catch (Exception exception) {
+            output.println("[ERROR] " + exception.getMessage());
+        }
+    }
+
+    private static void printCurrentData(IWFCFacade facade, User administrator,
+                                         PrintStream output) {
+        try {
+            List<Equipment> equipment = facade.viewEquipment(administrator);
+            List<FitnessSession> sessions = facade.viewAllSessions(administrator);
+            List<MaintenanceRequest> requests = facade.viewMaintenanceRequests(administrator);
+            if (equipment.isEmpty() && sessions.isEmpty() && requests.isEmpty()) {
+                output.println("No data yet - choose option 2 to load sample data.");
+                return;
+            }
+
+            output.println("Equipment:   ID | Name | Location | Status | Active | Usage hrs");
+            equipment.forEach(item -> output.printf("             %s | %s | %s | %s | %s | %.1f%n",
+                    item.getId(), item.getName(), item.getLocation(), item.getStatus(),
+                    item.isActive(), item.getCumulativeUsageHours()));
+            output.println("Sessions:    ID | Title | Date | Time | Location | Booked/Capacity");
+            sessions.forEach(session -> output.printf("             %s | %s | %s | %s-%s | %s | %d/%d%n",
+                    session.getId(), session.getTitle(), session.getStartTime().toLocalDate(),
+                    session.getStartTime().toLocalTime(), session.getEndTime().toLocalTime(),
+                    session.getStudio(), session.getBookedMemberIds().size(), session.getCapacity()));
+            output.println("Maintenance: ID | Equipment | Description | Urgency | Status");
+            requests.forEach(request -> output.printf("             %s | %s | %s | %s | %s%n",
+                    request.getId(), request.getEquipmentId(), request.getDescription(),
+                    request.getUrgency(), request.getStatus()));
+        } catch (UnauthorizedAccessException exception) {
+            output.println("[ERROR] " + exception.getMessage());
         }
     }
 }

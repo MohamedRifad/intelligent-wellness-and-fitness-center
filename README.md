@@ -35,7 +35,9 @@ java -cp target\iwfc-management-system-1.0.0-SNAPSHOT.jar iwfc.app.IWFCFacade
 ```
 
 The console performs one-time Administrator setup. Choose option `1` to run the
-guided end-to-end demonstration and option `0` to exit.
+guided end-to-end demonstration, option `2` to load the presentation sample data,
+option `3` to view current equipment, sessions, and maintenance requests, or option
+`0` to exit.
 
 For a strict Java 21 production compilation check:
 

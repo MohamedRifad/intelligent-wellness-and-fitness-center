@@ -49,4 +49,44 @@ class IWFCFacadeConsoleTest {
         assertTrue(bytes.toString(StandardCharsets.UTF_8)
                 .contains("Input ended. IWFC closed safely."));
     }
+
+    @Test
+    void loadsAndDisplaysCompleteSampleDataAndRejectsSecondLoad() {
+        String input = String.join(System.lineSeparator(),
+                "A1", "Rifad", "2", "2", "3", "0") + System.lineSeparator();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        try (Scanner scanner = new Scanner(input);
+             PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+            IWFCFacade.runConsole(scanner, output);
+        }
+
+        String transcript = bytes.toString(StandardCharsets.UTF_8);
+        assertTrue(transcript.contains("[SUCCESS] Sample data loaded."));
+        assertTrue(transcript.contains("[ERROR] Sample data already loaded"));
+        assertTrue(transcript.contains("Equipment:   ID | Name | Location | Status | Active | Usage hrs"));
+        assertTrue(transcript.contains("Sessions:    ID | Title | Date | Time | Location | Booked/Capacity"));
+        assertTrue(transcript.contains("Maintenance: ID | Equipment | Description | Urgency | Status"));
+        assertTrue(transcript.contains("S1 | Boxing Class"));
+        assertTrue(transcript.contains("Training Room | 2/2"));
+        assertTrue(transcript.contains("S4-W1 | Weekly Stretch"));
+        assertTrue(transcript.contains("S4-W2 | Weekly Stretch"));
+        assertTrue(transcript.contains("S4-W3 | Weekly Stretch"));
+        assertTrue(transcript.contains("S4-W4 | Weekly Stretch"));
+    }
+
+    @Test
+    void currentDataViewExplainsHowToLoadAnEmptyDataset() {
+        String input = String.join(System.lineSeparator(),
+                "A1", "Rifad", "3", "0") + System.lineSeparator();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        try (Scanner scanner = new Scanner(input);
+             PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+            IWFCFacade.runConsole(scanner, output);
+        }
+
+        assertTrue(bytes.toString(StandardCharsets.UTF_8)
+                .contains("No data yet - choose option 2 to load sample data."));
+    }
 }
