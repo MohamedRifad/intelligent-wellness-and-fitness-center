@@ -155,13 +155,27 @@ class BookingServiceTest {
 
     @Test
     void activeMemberBooksAndCanListOwnBookings() throws Exception {
-        schedule("S1", "I1", "A", at(9), at(10), 2, List.of("EQ1"));
+        schedule("S1", "I1", "Room B", at(9), at(10), 2, List.of("EQ1"));
 
         service.bookSession("M1", "S1");
 
         assertEquals(List.of("S1"), service.findSessionsForMember("M1").stream()
                 .map(FitnessSession::getId).toList());
         assertTrue(service.findSessionsForMember("M2").isEmpty());
+        assertEquals(List.of(
+                "Booking confirmed: Wellness Class on 2026-10-05 at 09:00 in Room B",
+                "Wellness tip: Drink water before and after training."),
+                member.getNotifications());
+    }
+
+    @Test
+    void failedBookingSendsNoNotification() throws Exception {
+        schedule("S1", "I1", "Room B", at(9), at(10), 1, List.of());
+        service.bookSession("M2", "S1");
+
+        assertThrows(InvalidBookingException.class, () -> service.bookSession("M1", "S1"));
+
+        assertTrue(member.getNotifications().isEmpty());
     }
 
     @Test

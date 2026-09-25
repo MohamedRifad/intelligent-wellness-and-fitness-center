@@ -15,6 +15,11 @@ import java.util.Objects;
 
 /** Coordinates IWFC session scheduling and member booking rules. */
 public final class BookingService {
+    private static final List<String> WELLNESS_TIPS = List.of(
+            "Drink water before and after training.",
+            "Warm up for 5 minutes before you start.",
+            "Rest well between hard sessions.");
+
     private final GenericRepository<User> userRepository;
     private final GenericRepository<Equipment> equipmentRepository;
     private final GenericRepository<FitnessSession> sessionRepository;
@@ -80,6 +85,11 @@ public final class BookingService {
             throw new InvalidBookingException("The session has reached capacity");
         }
         session.addMember(member.getId());
+        member.receiveNotification("Booking confirmed: " + session.getTitle() + " on "
+                + session.getStartTime().toLocalDate() + " at "
+                + session.getStartTime().toLocalTime() + " in " + session.getStudio());
+        int tipIndex = (session.getBookedMemberIds().size() - 1) % WELLNESS_TIPS.size();
+        member.receiveNotification("Wellness tip: " + WELLNESS_TIPS.get(tipIndex));
     }
 
     public List<FitnessSession> findAvailableSessions() {

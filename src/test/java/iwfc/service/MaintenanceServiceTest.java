@@ -87,6 +87,39 @@ class MaintenanceServiceTest {
     }
 
     @Test
+    void faultNotifiesOnlyActiveMembersBookedIntoAffectedSessions() throws Exception {
+        Member inactiveBookedMember = new Member("M2", "Inactive Member");
+        inactiveBookedMember.deactivate();
+        users.add(inactiveBookedMember);
+        service.registerObserver(inactiveBookedMember);
+        FitnessSession affected = sessions.findById("S1").orElseThrow();
+        affected.addMember(member.getId());
+        affected.addMember(inactiveBookedMember.getId());
+
+        report("R1");
+
+        assertEquals(List.of("Schedule notice: " + affected.getTitle()
+                        + " may be affected - " + bike.getName() + " reported faulty"),
+                member.getNotifications());
+        assertTrue(inactiveBookedMember.getNotifications().isEmpty());
+    }
+
+    @Test
+    void memberBookedIntoUnrelatedSessionReceivesNoFaultNotice() throws Exception {
+        Member unrelatedMember = new Member("M2", "Unrelated Member");
+        users.add(unrelatedMember);
+        service.registerObserver(unrelatedMember);
+        FitnessSession unrelated = new FitnessSession("S2", "Strength Circuit", "I2", "Room B",
+                at(10), at(11), 5, List.of("EQ2"));
+        unrelated.addMember(unrelatedMember.getId());
+        sessions.add(unrelated);
+
+        report("R1");
+
+        assertTrue(unrelatedMember.getNotifications().isEmpty());
+    }
+
+    @Test
     void rejectsDuplicateRequestId() throws Exception {
         report("R1");
 

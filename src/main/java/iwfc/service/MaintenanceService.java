@@ -58,6 +58,7 @@ public final class MaintenanceService {
         equipment.markFaulty();
         notifyActiveAdministrators("New fault " + request.getId() + " reported for equipment "
                 + equipment.getId());
+        notifyBookedMembersOfFault(equipment);
         return request;
     }
 
@@ -143,6 +144,22 @@ public final class MaintenanceService {
                 .filter(user -> user.getId().equals(request.getReportedByInstructorId()))
                 .findFirst()
                 .ifPresent(user -> user.receiveNotification(message));
+    }
+
+    private void notifyBookedMembersOfFault(Equipment equipment) {
+        sessionRepository.findAll().stream()
+                .filter(FitnessSession::isActive)
+                .filter(session -> session.getEquipmentIds().contains(equipment.getId()))
+                .forEach(session -> session.getBookedMemberIds().forEach(memberId ->
+                        observers.stream()
+                                .filter(User::isActive)
+                                .filter(user -> user.getRole() == User.Role.MEMBER)
+                                .filter(user -> user.getId().equals(memberId))
+                                .findFirst()
+                                .ifPresent(user -> user.receiveNotification(
+                                        "Schedule notice: " + session.getTitle()
+                                                + " may be affected - " + equipment.getName()
+                                                + " reported faulty"))));
     }
 
     private User requireActiveUser(String userId, User.Role role, String label) {

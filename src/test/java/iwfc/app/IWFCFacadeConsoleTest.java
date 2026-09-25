@@ -26,6 +26,10 @@ class IWFCFacadeConsoleTest {
         assertTrue(transcript.contains("This value is required"));
         assertTrue(transcript.contains("Enter 1 to run the demo or 0 to exit"));
         assertTrue(transcript.contains("[SUCCESS] Guided IWFC workflow completed."));
+        assertTrue(transcript.contains("Booking confirmed:"));
+        assertTrue(transcript.contains("Wellness tip:"));
+        assertTrue(transcript.contains("Schedule notice:"));
+        assertTrue(transcript.contains("Preventative maintenance due"));
         assertTrue(transcript.contains("[STATUS] Equipment: OPERATIONAL"));
         assertTrue(transcript.contains("[STATUS] Maintenance request: COMPLETED"));
         assertTrue(transcript.contains("Demonstration could not continue"));

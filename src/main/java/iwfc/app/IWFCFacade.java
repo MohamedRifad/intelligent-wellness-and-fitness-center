@@ -274,32 +274,39 @@ public final class IWFCFacade {
         try {
             output.println("1. Registering demonstration Instructor and Member...");
             User instructor = facade.registerUser(
-                    administrator, User.Role.INSTRUCTOR, "DEMO-I1", "Nimal Perera");
+                    administrator, User.Role.INSTRUCTOR, "DEMO-I1", "Dilan Fernando");
             User member = facade.registerUser(
-                    administrator, User.Role.MEMBER, "DEMO-M1", "Maya Silva");
+                    administrator, User.Role.MEMBER, "DEMO-M1", "Sajini Perera");
 
             output.println("2. Adding fitness equipment...");
             Equipment equipment = facade.addEquipment(
-                    administrator, "DEMO-EQ1", "Spin Bike", "Studio A");
+                    administrator, "DEMO-EQ1", "Cross Trainer", "Activity Room");
 
             output.println("3. Scheduling a session...");
             LocalDate demonstrationDate = LocalDate.now().plusDays(1);
             FitnessSession session = facade.scheduleSession(
-                    instructor, "DEMO-S1", "Morning Spin",
+                    instructor, "DEMO-S1", "Evening Conditioning",
                     demonstrationDate.atTime(9, 0), demonstrationDate.atTime(10, 0),
-                    "Studio A", List.of(equipment.getId()), 12);
+                    "Activity Room", List.of(equipment.getId()), 12);
 
             output.println("4. Booking the Member into the session...");
             facade.bookSession(member, session.getId());
+            output.println("   Member notification: " + member.getNotifications().get(0));
+            output.println("   Member notification: " + member.getNotifications().get(1));
 
             output.println("5. Recording session-equipment usage...");
             facade.recordSessionEquipmentUsage(
                     instructor, session.getId(), equipment.getId(), 2.5);
+            facade.recordSessionEquipmentUsage(
+                    instructor, session.getId(), equipment.getId(), 97.5);
+            output.println("   Administrator notification: "
+                    + administrator.getNotifications().getLast());
 
             output.println("6. Reporting an equipment fault...");
             MaintenanceRequest request = facade.reportFault(
-                    instructor, "DEMO-R1", equipment.getId(), "Resistance control failure",
+                    instructor, "DEMO-R1", equipment.getId(), "Drive mechanism noise",
                     MaintenanceRequest.Urgency.HIGH);
+            output.println("   Member notification: " + member.getNotifications().getLast());
 
             output.println("7. Administrator reviewing and assigning maintenance...");
             facade.viewMaintenanceRequests(administrator);
