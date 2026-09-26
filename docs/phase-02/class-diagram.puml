@@ -1,5 +1,5 @@
 @startuml
-title Intelligent Wellness and Fitness Center Planned Class Diagram
+title Intelligent Wellness and Fitness Center Implemented Class Diagram
 
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -85,9 +85,10 @@ package "iwfc.pattern" {
 package "iwfc.service" {
   class BookingService {
     + scheduleSession(...): FitnessSession
+    + scheduleWeeklySessions(...): List<FitnessSession>
     + bookSession(memberId: String, sessionId: String): void
     + findAvailableSessions(): List<FitnessSession>
-    + recordSessionUsage(sessionId: String, hours: double): void
+    + findSessionsForMember(memberId: String): List<FitnessSession>
   }
 
   class MaintenanceService <<Observer Subject>> {
@@ -96,7 +97,8 @@ package "iwfc.service" {
     + reportFault(...): MaintenanceRequest
     + assignRequest(...): void
     + completeRequest(...): void
-    + checkUsageAlert(equipmentId: String): boolean
+    + recordSessionEquipmentUsage(...): void
+    + checkPreventativeMaintenance(equipmentId: String): boolean
   }
 }
 
@@ -105,7 +107,10 @@ package "iwfc.app" {
     + registerUser(...): User
     + addEquipment(...): Equipment
     + scheduleSession(...): FitnessSession
+    + scheduleWeeklySessions(...): List<FitnessSession>
     + bookSession(...): void
+    + viewAllSessions(actor: User): List<FitnessSession>
+    + loadSampleData(administrator: User): void
     + reportFault(...): MaintenanceRequest
     + assignMaintenance(...): void
     + completeMaintenance(...): void

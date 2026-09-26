@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 const root = "E:/Projects/Fitness";
 const out = path.join(root, "submission/pres1/IWFC_PRES1_Presentation.pptx");
 const build = path.join(root, "target/pres1_build");
+const finalizedOut = path.join(build, `IWFC_PRES1_Presentation_${Date.now()}.pptx`);
 const skill = "C:/Users/LOQ/.codex/plugins/cache/openai-primary-runtime/presentations/26.909.12148/skills/presentations";
 const runtimeModules = process.env.RUNTIME_NODE_MODULES ??
   "C:/Users/LOQ/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules";
@@ -87,11 +88,11 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
 // 3
 {
   const s=base("Core workflows",3,
-    "Timing: 1:15-2:00. Walk through the three actors. An Administrator registers accounts and equipment. An Instructor schedules a class, records usage and reports a fault. A Member views availability and books a place. Maintenance then progresses Pending to Assigned to Completed. Explain the guardrails: 06:00 to 22:00, overlap checks, capacity and active equipment. Source: PRAC1 brief and IWFCFacade/BookingService/MaintenanceService.");
+    "Timing: 1:15-2:00. Walk through the three actors. An Administrator registers accounts and equipment. An Instructor schedules single or weekly sessions, records usage and reports a fault. A Member books a place and receives booking and affected-session notices. Maintenance progresses Pending to Assigned to Completed. Explain the guardrails: 06:00 to 22:00, overlap checks, capacity and active equipment. Source: PRAC1 brief and IWFCFacade/BookingService/MaintenanceService.");
   const rows=[
     ["Administrator","Registers users; adds and updates equipment; assigns maintenance."],
-    ["Instructor","Schedules sessions; records equipment usage; reports faults."],
-    ["Member","Views available sessions and books an open place."]
+    ["Instructor","Schedules single or weekly sessions; records usage; reports faults."],
+    ["Member","Books an open place and receives relevant notifications."]
   ];
   rows.forEach((r,i)=>{const y=184+i*129;label(s,r[0],76,y,260);txt(s,r[1],324,y-2,810,72,24,C.ink);line(s,76,y+88,1185,y+88,C.line,2);});
   txt(s,"Maintenance status:  PENDING     ASSIGNED     COMPLETED",76,594,1100,41,24,C.navy,true);
@@ -111,9 +112,9 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
   classBox(s,"Equipment",73,y2,190,55,"status; usageHours");
   classBox(s,"FitnessSession",287,y2,190,55,"capacity; bookings");
   classBox(s,"MaintenanceRequest",501,y2,217,55,"PENDING / ASSIGNED");
-  classBox(s,"BookingService",743,y2,206,55,"hours; conflicts");
-  classBox(s,"MaintenanceService",973,y2,224,55,"Observer publisher");
-  classBox(s,"IWFCFacade  «Facade»",399,469,281,62,"public use-case methods");
+  classBox(s,"BookingService",743,y2,206,55,"scheduleWeeklySessions");
+  classBox(s,"MaintenanceService",973,y2,224,55,"multi-request state");
+  classBox(s,"IWFCFacade  «Facade»",399,469,281,62,"viewAllSessions; sample data");
   classBox(s,"EntityFactory  «Factory»",77,562,273,57,"creates users; equipment");
   classBox(s,"GenericRepository<T>",392,562,252,57,"typed in-memory IDs");
   classBox(s,"InvalidBookingException",691,562,230,57);
@@ -126,12 +127,12 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
 // 5
 {
   const s=base("Factory, Facade and Observer",5,
-    "Timing: 3:15-4:10. Factory: EntityFactory creates all three roles and equipment, and the Facade calls it. Facade: public task methods guard role and account state before coordinating repositories and services. Observer: MaintenanceService publishes a new fault or 100-hour alert to active Administrators, while assignment and completion reach the reporting Instructor. Inactive and unrelated users receive no event. Source: EntityFactory, IWFCFacade, MaintenanceService, User, tests.");
+    "Timing: 3:15-4:10. Factory creates all three roles and equipment. Facade methods guard role and account state before coordinating weekly scheduling, sample loading and Administrator views. Observer publishing sends fault or 100-hour alerts to active Administrators, assignment and completion to the reporter, and affected-session notices to booked active Members. BookingService uses the same User receiver for confirmations and deterministic wellness tips. Source: EntityFactory, IWFCFacade, BookingService, MaintenanceService, User, tests.");
   block(s,"Factory","EntityFactory creates validated roles and equipment.",74,190,345);
   block(s,"Facade","IWFCFacade checks the actor and coordinates each use case.",468,190,345);
   block(s,"Observer","MaintenanceService routes relevant events to active users.",862,190,340);
   line(s,74,465,1200,465,C.line,2);
-  txt(s,"Example: fault reported  →  active Administrators notified  →  assignment  →  reporting Instructor notified",
+  txt(s,"Fault event: Administrators alerted, affected Members warned, reporting Instructor updated",
     74,502,1120,95,23,C.navy,true);
 }
 // 6
@@ -161,18 +162,18 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
 }
 // 8
 {
-  const s=base("Verification: 126 passing tests",8,
-    "Timing: 5:40-6:30. Maven Surefire recorded 14 test suites, 126 tests, zero failures, zero errors and zero skipped. The coverage spans domain validation, repository and Factory, services, Facade authorization, console and integration. Mention deliberately rejected scenarios tested with assertThrows, rather than a permanently failing suite. Boundaries include 06:00 and 22:00, adjacent versus overlapping sessions, capacity, and 99.9 versus 100 hours. Source: target/surefire-reports XML and final technical evidence pack.");
-  txt(s,"126",77,174,450,177,105,C.teal,true);
+  const s=base("Verification with 142 passing tests",8,
+    "Timing: 5:40-6:30. Maven Surefire recorded 14 test suites, 142 tests, zero failures, zero errors and zero skipped. Coverage includes recurring-series atomicity, booking and schedule notifications, multiple open maintenance requests, sample-data state and console data views. Mention rejected scenarios tested with assertThrows, rather than a permanently failing suite. Boundaries include 06:00 and 22:00, one to twelve recurrence weeks, capacity, and 99.9 versus 100 hours. Source: target/surefire-reports XML and completed codebase.");
+  txt(s,"142",77,174,450,177,105,C.teal,true);
   txt(s,"passing JUnit tests",75,347,650,60,34,C.navy,true);
   txt(s,"14 suites   /   0 failures   /   0 errors   /   0 skipped",75,430,1120,54,26,C.ink);
   line(s,75,529,1180,529,C.line,2);
-  txt(s,"Boundaries: 06:00–22:00  •  adjacent intervals  •  99.9 / 100 hours",75,565,1120,60,22,C.grey);
+  txt(s,"Boundaries: 06:00 to 22:00     1 to 12 weeks     99.9 / 100 hours",75,565,1120,60,22,C.grey);
 }
 // 9
 {
   const s=base("Integration and defect reflection",9,
-    "Timing: 6:30-7:20. The six integration tests include the full workflow through public Facade methods and rejected duplicate equipment, conflicting sessions, unauthorized log access and invalid maintenance transitions. One defect emerged in preventative alerts: a simple once-ever latch would suppress later maintenance cycles. The completed design rearms a per-equipment threshold after maintenance completion and tests a second cycle without duplicate alerts. This is a documented design correction, not an invented production incident. Source: IWFCWorkflowIntegrationTest, MaintenanceServiceTest, docs/phase-05.");
+    "Timing: 6:30-7:20. The integration suite covers the full workflow through public Facade methods and rejects duplicate equipment, conflicting sessions, unauthorized log access and invalid maintenance transitions. Additional tests prove a four-week atomic series and the three equipment states after one of several requests completes. The preventative-alert design rearms a per-equipment threshold after completion and tests a second cycle without duplicates. Source: IWFCWorkflowIntegrationTest, BookingServiceTest and MaintenanceServiceTest.");
   label(s,"successful path",75,185);
   txt(s,"Register  →  equip  →  schedule  →  book  →  use  →  report  →  assign  →  complete",
     75,227,1120,91,25,C.navy,true);
@@ -180,16 +181,16 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
   label(s,"rejected paths",75,397);
   txt(s,"Duplicate ID   Conflicting session   Unauthorized log   Invalid transition",
     75,440,1110,80,24,C.ink);
-  txt(s,"Alert policy corrected: one alert per cycle; completion opens the next 100-hour cycle.",
+  txt(s,"Open requests preserve equipment state; alerts rearm for the next maintenance cycle.",
     75,563,1110,67,22,C.teal,true);
 }
 // 10
 {
   const s=base("Console demonstration",10,
-    "Timing: 7:20-8:35. Leave the slide briefly and show the running console. From the project directory run the packaged JAR command shown. Enter a one-time Administrator ID and name, select option 1. Narrate user registration, Spin Bike creation, session scheduling and Member booking. Show usage, fault reporting, assignment, Instructor notification and completion. Point to final OPERATIONAL equipment and COMPLETED request. Select 0 to exit. If time is tight, show the essential stages only. Source: README and IWFCFacade.main.");
-  txt(s,"1  Set up the Administrator",75,178,1020,46,25,C.navy,true);
-  txt(s,"2  Choose the guided workflow",75,246,1020,46,25,C.navy,true);
-  txt(s,"3  Observe booking, usage, maintenance and notifications",75,314,1100,72,25,C.navy,true);
+    "Timing: 7:20-8:35. Enter A1 and Rifad. Choose option 2 to load sample data, then option 3 to show S1 at 2/2 and S4-W1 through S4-W4. Choose option 1 to run the guided workflow and point out booking confirmation, wellness tip, schedule notice and the 100-hour preventative alert. Finish with Operational equipment and a Completed request, then select 0. Source: README and IWFCFacade.main.");
+  txt(s,"1  Administrator setup: A1 / Rifad",75,178,1020,46,25,C.navy,true);
+  txt(s,"2  Load sample data, then view all current data",75,246,1020,46,25,C.navy,true);
+  txt(s,"3  Run the guided workflow and show notifications",75,314,1100,72,25,C.navy,true);
   line(s,75,420,1180,420,C.line,2);
   txt(s,"java -cp target\\iwfc-management-system-1.0.0-SNAPSHOT.jar iwfc.app.IWFCFacade",
     75,465,1100,75,20,C.ink);
@@ -198,20 +199,20 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
 // 11
 {
   const s=base("Limitations and next steps",11,
-    "Timing: 8:35-9:20. Be candid: this is an in-memory, single-process prototype. Restarting loses data. Account identity is guarded by registered object identity and role but has no password authentication. Recurring weekly classes are optional and not implemented. Member wellness or schedule notifications are not published, although maintenance notifications work. Future work is persistent transactional storage, real authentication, concurrency-safe bookings, recurrence and Member reminders. Source: report and evidence pack.");
+    "Timing: 8:35-9:20. Be candid: this is an in-memory, single-process prototype. Restarting loses data. Account identity is guarded by registered object identity and role but has no password authentication. Weekly recurrence supports a fixed interval and occurrence count rather than a general calendar engine. Notifications remain in memory rather than using email or mobile services. Future work is persistent transactional storage, real authentication, concurrency-safe bookings, richer recurrence and durable notification delivery. Source: report and completed codebase.");
   block(s,"Current prototype","In-memory data; guided console; no credential login.",76,183,500);
-  block(s,"Known gaps","No weekly recurrence or Member schedule reminders.",674,183,500);
+  block(s,"Known gaps","No database, concurrent transactions or external message delivery.",674,183,500);
   line(s,76,448,1180,448,C.line,2);
   label(s,"future implementation",76,490);
-  txt(s,"Persistent storage, transactional booking, authentication and reminder events",
+  txt(s,"Persistent storage, transactional booking, authentication and durable notifications",
     76,535,1100,82,26,C.navy,true);
 }
 // 12
 {
   const s=base("What this project demonstrates",12,
-    "Timing: 9:20-10:00. Summarise the learning: a small domain model can enforce real booking and maintenance rules, patterns matter when they support an actual workflow, and tests make boundary behaviour explainable. The hardest design choice was keeping the 15-file architecture while making Observer delivery and alert reset robust. Show the repository link on slide one again if asked. Finish the recording and replace slide one's video placeholder with a real accessible URL before submission. The brief also asks you to check recorded audio and screen capture. Source: completed project and PRES1 brief.");
+    "Timing: 9:20-10:00. Summarise the learning: a small domain model can enforce booking, recurring scheduling and maintenance rules, patterns matter when they support a real workflow, and tests make boundary behaviour explainable. The hardest design choice was retaining 15 production files while adding atomic recurrence and filtered notifications. Show the repository link on slide one again if asked. Finish the recording, replace the video reminder with a verified URL, and check audio and screen capture. Source: completed project and PRES1 brief.");
   txt(s,"A working Java 21 prototype",75,195,1110,70,39,C.navy,true);
-  txt(s,"15 production classes   /   three meaningful patterns   /   126 passing tests",
+  txt(s,"15 production classes   /   three meaningful patterns   /   142 passing tests",
     75,315,1110,80,28,C.teal,true);
   line(s,75,453,1180,453,C.line,2);
   txt(s,"Final manual step: record the 10-minute walkthrough and place its verified link on slide 1.",
@@ -221,7 +222,7 @@ function classBox(s,title,x,y,w=180,h=64,detail="") {
 const staging = path.join(build,"candidate.pptx");
 await (await PresentationFile.exportPptx(deck)).save(staging);
 const result=await finalizePresentation({
-  workspaceDir:root,candidatePath:staging,finalPath:out,
+  workspaceDir:root,candidatePath:staging,finalPath:finalizedOut,
   pythonExecutable:runtimePython,
   integrityValidatorPath:path.join(skill,"container_tools/inspect_presentation_package_integrity.py"),
   layoutValidatorPath:path.join(skill,"container_tools/inspect_presentation_layout_geometry.py"),
@@ -230,4 +231,5 @@ const result=await finalizePresentation({
   verifyArtifactToolImport:true,
   receiptPath:path.join(build,"IWFC_PRES1_Presentation.validation.json")
 });
+await fs.copyFile(finalizedOut, out);
 console.log(JSON.stringify({output:out,slides:deck.slides.length,result},null,2));

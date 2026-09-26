@@ -73,13 +73,13 @@ def create_uml():
     draw.text((60, 35), "IWFC implemented class architecture", font=font(48, True), fill=f"#{INK}")
 
     rounded_box(draw, (760, 120, 1440, 300), "IWFCFacade  <<Facade>>",
-                ["public use-case API", "role and active-account guards", "console entry point"], PALE)
+                ["public use-case API", "weekly scheduling + all-session view", "console entry point"], PALE)
     rounded_box(draw, (170, 390, 760, 710), "Domain model", [
         "User  <<abstract>>", "Administrator extends User", "Instructor extends User",
         "Member extends User", "Equipment", "FitnessSession", "MaintenanceRequest"
     ], "F7F9FB")
     rounded_box(draw, (820, 390, 1380, 610), "Application services", [
-        "BookingService", "MaintenanceService  <<Subject>>", "User observers receive events"
+        "BookingService: atomic weekly series", "MaintenanceService  <<Subject>>", "User observers receive events"
     ], "F7F9FB")
     rounded_box(draw, (1440, 390, 2030, 610), "Creation and storage", [
         "EntityFactory  <<Factory>>", "GenericRepository<T>", "HashMap<String,T> storage"
@@ -138,8 +138,8 @@ def create_test_chart():
     image = Image.new("RGB", (1900, 1050), "white")
     draw = ImageDraw.Draw(image)
     draw.text((55, 35), "Passing tests by architectural area", font=font(46, True), fill=f"#{INK}")
-    data = [("Facade and console", 46), ("Domain entities", 34), ("Services", 33), ("Factory and repository", 13)]
-    max_value = 50
+    data = [("Facade and console", 52), ("Domain entities", 34), ("Services", 43), ("Factory and repository", 13)]
+    max_value = 55
     x0, y0, bar_max, bar_h, gap = 410, 190, 1250, 120, 78
     for index, (label, value) in enumerate(data):
         y = y0 + index * (bar_h + gap)
@@ -148,7 +148,7 @@ def create_test_chart():
         width = int(bar_max * value / max_value)
         draw.rounded_rectangle((x0, y, x0 + width, y + bar_h), radius=18, fill=f"#{BLUE}")
         draw.text((x0 + width + 20, y + 32), str(value), font=font(30, True), fill=f"#{INK}")
-    draw.text((55, 940), "Total: 126 tests | Failures: 0 | Errors: 0 | Skipped: 0",
+    draw.text((55, 940), "Total: 142 tests | Failures: 0 | Errors: 0 | Skipped: 0",
               font=font(30, True), fill=f"#{NAVY}")
     image.save(ASSETS / "figure-3-test-distribution.png", quality=95)
 
@@ -283,7 +283,7 @@ def add_cover(doc):
         ("Student ID", "[STUDENT ID]"),
         ("Module tutor", "[MODULE TUTOR]"),
         ("Submission date", "[SUBMISSION DATE]"),
-        ("Approximate report word count", "2,934 words before references and appendix"),
+        ("Approximate report word count", "3,124 words before references and appendix"),
     ]
     table = doc.add_table(rows=len(details), cols=2)
     table.alignment = 1

@@ -16,7 +16,7 @@ An Administrator manages accounts and equipment, and controls maintenance assign
 
 ## Slide 4 — Class diagram (2:00–3:15)
 
-The diagram names all 15 top-level production files. The abstract User owns shared identity, active state and notification behaviour. Administrator, Instructor and Member extend it. Equipment, FitnessSession and MaintenanceRequest hold domain rules. BookingService checks schedules and bookings. MaintenanceService manages faults, usage and notification publishing. IWFCFacade is the public use-case boundary. EntityFactory centralises creation and GenericRepository<T> provides type-safe storage. The three checked custom exceptions express booking, access and duplicate-data failures. Nested enums live inside existing source files, so they do not increase the 15-file count.
+The diagram names all 15 top-level production files. The abstract User owns shared identity, active state and notification behaviour. Administrator, Instructor and Member extend it. Equipment, FitnessSession and MaintenanceRequest hold domain rules. BookingService handles ordinary and atomic weekly scheduling, bookings, confirmations and wellness tips. MaintenanceService manages faults, multiple open requests, usage and filtered notifications. IWFCFacade exposes the public use cases, including scheduleWeeklySessions, viewAllSessions and loadSampleData. EntityFactory centralises creation and GenericRepository<T> provides type-safe storage. The three checked custom exceptions express booking, access and duplicate-data failures. Nested enums live inside existing source files, so they do not increase the 15-file count.
 
 ## Slide 5 — Design patterns (3:15–4:10)
 
@@ -32,7 +32,7 @@ The system throws InvalidBookingException for scheduling or booking rule failure
 
 ## Slide 8 — Testing (5:40–6:30)
 
-The verified Maven Surefire result is 14 suites and 126 tests, with no failures, errors or skips. Tests cover the domain, Factory and repository, both services, Facade authorization, console and end-to-end integration. Negative tests deliberately invoke invalid conditions with assertThrows; the test suite remains green because those exceptions are expected. Important boundaries include exactly 06:00 and 22:00, adjacent versus overlapping sessions, capacity, and 99.9 versus 100 equipment-usage hours.
+The verified Maven Surefire result is 14 suites and 142 tests, with no failures, errors or skips. Tests cover the domain, Factory and repository, both services, Facade authorization, console and end-to-end integration. New cases prove all-or-nothing weekly recurrence, Member notification filtering, equipment status with other open requests and sample-data console views. Negative tests deliberately invoke invalid conditions with assertThrows; the suite remains green because those exceptions are expected. Important boundaries include exactly 06:00 and 22:00, one to twelve recurrence weeks, capacity, and 99.9 versus 100 equipment-usage hours.
 
 ## Slide 9 — Integration and reflection (6:30–7:20)
 
@@ -40,15 +40,15 @@ The integration suite drives the successful workflow through public Facade metho
 
 ## Slide 10 — Console demonstration (7:20–8:35)
 
-Switch from the slide to the terminal. From the project directory, run the JAR command shown after packaging if necessary. Enter the one-time Administrator ID and name, then select option 1. Point out account and Spin Bike creation, the session booking, usage recording, fault report, assignment notification and completion notification. End with equipment Operational and request Completed. Select option 0 to exit. The console calls public Facade methods rather than manipulating repositories directly.
+Switch from the slide to the terminal. Enter A1 and Rifad for the one-time Administrator. Select option 2 to load the sample data, then option 3. Point out S1 at 2/2 and all four Weekly Stretch occurrences. Select option 1 and show the booking confirmation, deterministic wellness tip, affected-session schedule notice and 100-hour preventative alert. End with equipment Operational and request Completed, then select option 0. The console calls public Facade methods rather than manipulating repositories directly.
 
 ## Slide 11 — Limitations (8:35–9:20)
 
-The prototype is intentionally in memory, so a restart loses data. It checks registered actor identity and role, but does not implement passwords or a real authentication service. Weekly recurring classes are optional in the brief and remain unimplemented. Member wellness or schedule reminders are also not published. Next steps are persistent and transactional storage, credential-based authentication, concurrency-safe booking, recurrence and Member reminder events.
+The prototype is intentionally in memory, so a restart loses data. It checks registered actor identity and role, but does not implement passwords or a real authentication service. Concurrent bookings do not have database transactions. Weekly recurrence uses a fixed seven-day interval and occurrence count rather than a general calendar-rule engine. Notifications remain in process rather than using durable email or mobile delivery. Next steps are persistent transactional storage, credential authentication, concurrency-safe booking and external notification delivery.
 
 ## Slide 12 — Conclusion (9:20–10:00)
 
-The result is a working Java prototype with 15 production files, three patterns used in actual workflows and 126 passing tests. The hardest part was keeping the architecture compact while making Observer delivery and alert-cycle reset reliable. Testing the boundary and rejected cases made the design more precise. Before submission, replace slide one's video reminder with the real recording link and check both audio and screen capture.
+The result is a working Java prototype with 15 production files, three patterns used in actual workflows and 142 passing tests. The hardest part was keeping the architecture compact while adding atomic weekly recurrence, filtered Member notifications and correct equipment status across multiple requests. Testing the boundary and rejected cases made the design more precise. Before submission, replace slide one's video reminder with the real recording link and check both audio and screen capture.
 
 ## Recording and submission checklist
 

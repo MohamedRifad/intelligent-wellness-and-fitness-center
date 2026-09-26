@@ -43,11 +43,11 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 
 **Important fields.** Four typed repositories store `User`, `Equipment`, `FitnessSession` and `MaintenanceRequest`. The class also owns one `EntityFactory`, one `BookingService` configured for 06:00-22:00, and one `MaintenanceService`.
 
-**Important methods.** `initializeAdministrator` performs one-time setup. `registerUser`, `viewUsers` and `deactivateUser` manage accounts. `addEquipment`, `updateEquipment`, `deactivateEquipment` and `viewEquipment` manage inventory. `scheduleSession`, `bookSession`, `viewAvailableSessions` and `viewMyBookings` expose booking use cases. Maintenance methods report, assign, complete and list requests, record usage, and check preventative maintenance. `requireRole` is the central authorization guard. `main`, `runConsole` and `runGuidedDemonstration` provide the presentation console.
+**Important methods.** `initializeAdministrator` performs one-time setup. `registerUser`, `viewUsers` and `deactivateUser` manage accounts. `addEquipment`, `updateEquipment`, `deactivateEquipment` and `viewEquipment` manage inventory. `scheduleSession`, `scheduleWeeklySessions`, `bookSession`, `viewAvailableSessions`, `viewMyBookings` and the Administrator-only `viewAllSessions` expose booking use cases. `loadSampleData` builds the presentation dataset through public Facade operations after checking every reserved ID. Maintenance methods report, assign, complete and list requests, record usage, and check preventative maintenance. `requireRole` is the central authorization guard. `main` and `runConsole` provide options 1, 2, 3 and 0.
 
 **Calls and callers.** The console, integration tests and Facade tests call it. It calls `EntityFactory`, both services and all four repositories. It also invokes entity behaviour such as `User.deactivate` and `Equipment.updateDetails`.
 
-**Business logic.** The Facade accepts only the exact registered object, checks that the account is active, and verifies the required role. An object with the same ID but a different identity is rejected. The first Administrator can be created only while the user repository is empty. All later creation requires an active Administrator.
+**Business logic.** The Facade accepts only the exact registered object, checks that the account is active, and verifies the required role. An object with the same ID but a different identity is rejected. The first Administrator can be created only while the user repository is empty. All later creation requires an active Administrator. Sample loading rejects any reserved-ID conflict before creating records, so a second load cannot leave partial duplicate data.
 
 **Presentation wording.** “The Facade gives the console one safe API. It authenticates the exact registered actor, checks role and active state, and then coordinates the correct service and repository. This keeps presentation code away from business internals.”
 
@@ -93,9 +93,9 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 
 **Important method.** The constructor fixes the role to `MEMBER`; `getRoleDescription` describes booking access.
 
-**Calls and callers.** The Factory creates it. The Facade authorizes Member booking and viewing methods. `BookingService` validates that the stored account is active and has the Member role.
+**Calls and callers.** The Factory creates it. The Facade authorizes Member booking and viewing methods. `BookingService` validates that the stored account is active and has the Member role, then sends booking confirmation and a deterministic wellness tip after success. `MaintenanceService` sends schedule notices to active booked Members when session equipment becomes Faulty.
 
-**Business logic.** Members cannot use Administrator or Instructor operations. Duplicate booking and capacity checks occur in the booking workflow.
+**Business logic.** Members cannot use Administrator or Instructor operations. Duplicate booking and capacity checks occur before notifications, so rejected bookings send no message. Fault notices reach only active Members booked into active sessions that use the affected equipment.
 
 **Presentation wording.** “Member shows role-based polymorphism and least privilege: it can view and book sessions but cannot manage inventory or maintenance.”
 
@@ -163,13 +163,13 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 
 **Responsibility.** Implements session scheduling, availability and Member booking rules.
 
-**Important methods.** `scheduleSession` validates hours, Instructor, session data, duplicate ID, equipment and conflicts before saving. `bookSession` validates Member, session activity, equipment, duplicate booking and capacity. `findAvailableSessions` filters unusable sessions; `findSessionsForMember` returns personal bookings.
+**Important methods.** `scheduleSession` validates hours, Instructor, session data, duplicate ID, equipment and conflicts before saving. `scheduleWeeklySessions` creates one to twelve weekly occurrences with IDs such as `S4-W1`, validates the whole series, and saves only after every occurrence passes. `bookSession` validates Member, session activity, equipment, duplicate booking and capacity before sending confirmation and a deterministic wellness tip. `findAvailableSessions` filters unusable sessions; `findSessionsForMember` returns personal bookings.
 
 **Calls and callers.** The Facade calls its public methods. It calls typed repositories and `FitnessSession`/`Equipment` behaviour.
 
-**Business logic.** Operating hours are 06:00-22:00 with inclusive boundaries and same-day sessions. Overlapping sessions cannot share an Instructor, studio or equipment, while adjacent intervals and truly different resources are allowed. Equipment must exist, remain active and be Operational. Full, inactive or equipment-unavailable sessions disappear from availability.
+**Business logic.** Operating hours are 06:00-22:00 with inclusive boundaries and same-day sessions. Overlapping sessions cannot share an Instructor, studio or equipment, while adjacent intervals and truly different resources are allowed. Recurring scheduling reuses these rules and is all-or-nothing, so a clash in a later week saves none of the requested series. Equipment must exist, remain active and be Operational. Full, inactive or equipment-unavailable sessions disappear from availability.
 
-**Presentation wording.** “BookingService is where scheduling rules live. It rejects overlaps by resource, not merely duplicate times, and it rechecks equipment at booking time because equipment state may change after scheduling.”
+**Presentation wording.** “BookingService owns normal and recurring scheduling. A recurring series reuses the same conflict and equipment validation for every week and is saved only when all occurrences pass. Successful booking then sends a confirmation and stable wellness tip.”
 
 ### 2.12 iwfc.service.MaintenanceService
 
@@ -179,7 +179,7 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 
 **Calls and callers.** The Facade calls the service. It calls `Equipment`, `MaintenanceRequest` and `User` behaviour and uses repositories for relationships.
 
-**Business logic.** Reporting requires an active Instructor and active equipment, creates a unique request, marks equipment Faulty and notifies active Administrators. Assignment changes the request to Assigned, marks equipment Under Maintenance and notifies the reporting Instructor. Completion restores only active equipment to Operational, resets the alert cycle and notifies the reporter. Usage requires the active session’s owning Instructor and assigned equipment. At the inclusive threshold, active Administrators receive one alert for that cycle. Completion sets the next threshold to current usage plus 100 and allows a later alert.
+**Business logic.** Reporting requires an active Instructor and active equipment, creates a unique request, marks equipment Faulty, notifies active Administrators and warns active Members booked into affected sessions. Assignment changes the request to Assigned, marks equipment Under Maintenance and notifies the reporting Instructor. On completion, the service checks every other request for that equipment. A remaining Pending request keeps it Faulty, remaining Assigned requests keep it Under Maintenance, and only no open request permits Operational. Deactivated equipment is never reactivated. Usage requires the active session’s owning Instructor and assigned equipment. At the inclusive threshold, active Administrators receive one alert for that cycle. Completion sets the next threshold to current usage plus 100 and allows a later alert.
 
 **Presentation wording.** “MaintenanceService is the Observer publisher. It decides which event happened and which active users are relevant. It also uses a per-cycle latch so repeated checks do not duplicate an alert, while completed maintenance re-arms the next 100-hour cycle.”
 
@@ -236,6 +236,8 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 8. The valid session is stored.
 9. For booking, the Facade requires an active registered Member.
 10. The service rechecks session activity, equipment availability, duplicate membership and capacity, then adds the Member ID.
+11. Only after success, the Member receives a booking confirmation and one deterministic wellness tip.
+12. For a weekly series, `scheduleWeeklySessions` repeats the same validation for each seven-day occurrence and saves the series only after all weeks pass.
 
 ### 3.3 Fault and maintenance workflow
 
@@ -245,7 +247,7 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 4. `assignMaintenance` authorizes the Administrator and calls `assignRequest`.
 5. The request becomes Assigned, equipment becomes Under Maintenance, and the reporting Instructor receives one assignment message.
 6. `completeMaintenance` authorizes the Administrator and calls `completeRequest`.
-7. The request becomes Completed. Active equipment returns to Operational; deactivated equipment remains deactivated and is not restored.
+7. The request becomes Completed. The service then examines other open requests for the same equipment: Pending has priority over Assigned, and Operational is allowed only when none remain. Deactivated equipment is not restored.
 8. The preventative cycle resets and the reporting Instructor receives one completion message.
 
 ### 3.4 Usage and preventative-alert workflow
@@ -264,16 +266,18 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 1. Users are registered as observers when the Facade initializes or registers them.
 2. A new fault or preventative threshold is relevant to all active Administrators.
 3. Assignment and completion are relevant only to the active Instructor who originally reported that request.
-4. Members, unrelated Instructors and inactive users receive nothing.
-5. Duplicate observer registration is prevented, so an eligible user receives one message per event.
+4. An equipment fault is relevant to active Members booked into active sessions using that equipment.
+5. A successful booking directly sends that Member a confirmation and deterministic wellness tip through `User.receiveNotification`.
+6. Unrelated and inactive users receive nothing.
+7. Duplicate observer registration is prevented, so an eligible user receives one message per event.
 
 ## 4 The three design patterns in this code
 
 | Pattern | Participant | Actual example | Why it is meaningful |
 |---|---|---|---|
 | Factory | `EntityFactory` | `createUser` returns one of three concrete roles; `createEquipment` creates inventory objects | Constructor choice and creation policy stay out of console and Facade workflow code |
-| Facade | `IWFCFacade` | `scheduleSession`, `bookSession`, `reportFault`, `completeMaintenance` | Each public method combines authorization, repositories and service calls behind one use-case API |
-| Observer | `MaintenanceService` as publisher; `User` as receiver | Active Administrators receive fault/threshold events; the reporting Instructor receives assignment/completion | Events reach only relevant active users and workflow code does not manually update every screen or client |
+| Facade | `IWFCFacade` | `scheduleWeeklySessions`, `viewAllSessions`, `loadSampleData`, `reportFault`, `completeMaintenance` | Each public method combines authorization, repositories and service calls behind one use-case API |
+| Observer | `MaintenanceService` as publisher; `User` as receiver | Administrators receive fault/threshold events; reporting Instructors receive transitions; affected Members receive schedule notices | Events reach only relevant active users, while the same receiver also stores booking confirmation and wellness messages |
 
 ## 5 Exceptions and failure meaning
 
@@ -288,7 +292,7 @@ InvalidBookingException | UnauthorizedAccessException | DuplicateDataException
 
 ## 6 JUnit test guide
 
-The project has 14 test classes and 126 passing tests. Parameterized tests create more executed test cases than the number of method names.
+The project has 14 test classes and 142 passing tests, with zero failures, errors and skips. Parameterized tests create more executed test cases than the number of method names.
 
 | Test class | Main proof | Good tests to mention orally |
 |---|---|---|
@@ -298,13 +302,13 @@ The project has 14 test classes and 126 passing tests. Parameterized tests creat
 | `MaintenanceRequestTest` | Audit data and strict state machine | completion before assignment and repeated transitions throw |
 | `GenericRepositoryTest` | Generic reuse, uniqueness, lookup and snapshots | different entity types use the same repository; snapshots stay read-only and stable |
 | `EntityFactoryTest` | All three concrete roles and Equipment are created correctly | parameterized role test and null-role rejection |
-| `BookingServiceTest` | Complete scheduling and booking business rules | inclusive 06:00/22:00; three conflict types; adjacent and concurrent sessions; unavailable equipment; capacity |
-| `MaintenanceServiceTest` | Fault workflow, usage, alert cycles and Observer filtering | only active relevant recipients; one alert per cycle; later cycle after completion; invalid usage/ownership |
-| `IWFCFacadeAdministrationTest` | Administrator-only account/equipment operations | fabricated and inactive Administrator rejection; all roles created through Factory; duplicate IDs |
-| `IWFCFacadeSchedulingTest` | Facade role guards plus successful scheduling/booking | exact registered Instructor/Member checks; capacity and equipment changes |
+| `BookingServiceTest` | Complete scheduling and booking business rules | weekly IDs/dates; atomic week-three clash rejection; independent occurrence booking; confirmation and wellness tip |
+| `MaintenanceServiceTest` | Fault workflow, usage, alert cycles and Observer filtering | affected Member notices; multiple-open-request status outcomes; one alert per cycle; later cycle after completion |
+| `IWFCFacadeAdministrationTest` | Administrator operations and sample data | all sample counts/states; future Tuesday; second-load rejection; Administrator-only all-session listing |
+| `IWFCFacadeSchedulingTest` | Facade role guards plus successful scheduling/booking | Instructor-only recurring scheduling; exact registered Instructor/Member checks; capacity and equipment changes |
 | `IWFCFacadeMaintenanceTest` | Facade guards plus full maintenance/usage operations | Administrator-only log/transitions; deactivated equipment never reactivated; 99.9/100 alert |
 | `IWFCWorkflowIntegrationTest` | End-to-end behavior using public Facade methods only | successful full workflow; duplicate equipment; conflict; unauthorized log; invalid transition; second alert cycle |
-| `IWFCFacadeConsoleTest` | Invalid input and repeated-demo errors do not crash console | guided workflow reaches Operational/Completed; end-of-input closes safely |
+| `IWFCFacadeConsoleTest` | Invalid input and data options do not crash console | guided notifications; sample loading; S1 at 2/2; all S4 occurrences; empty-data guidance |
 | `IWFCFacadeSmokeTest` | Application foundation constructs correctly | Factory and both services are non-null |
 
 ### How to explain `assertThrows`
@@ -351,6 +355,8 @@ javac --release 21 -Xlint:all -Werror -d target/strict-java21 $sourceFiles
 java -cp target\iwfc-management-system-1.0.0-SNAPSHOT.jar iwfc.app.IWFCFacade
 ```
 
+For the presentation, enter `A1`, `Rifad`, then choose option `2` to load sample data, option `3` to display it, option `1` for the guided workflow, and option `0` to exit.
+
 Enter an Administrator ID and name, select `1` for the guided demonstration, then select `0` to exit.
 
 ### Check repository status
@@ -388,14 +394,15 @@ git log --oneline -1
 | How is double booking prevented? | BookingService applies the interval overlap rule, then checks shared Instructor, studio and equipment. |
 | Why recheck equipment during booking? | Equipment may become Faulty, Under Maintenance or deactivated after a session was scheduled. |
 | How are operating hours handled? | Start cannot be before 06:00, end cannot be after 22:00, and both must be on the same date. Boundaries are inclusive. |
-| What is the Observer event flow? | Active Administrators receive new-fault and threshold alerts; the active reporting Instructor receives assignment and completion. |
+| What is the Observer event flow? | Active Administrators receive new-fault and threshold alerts; the active reporting Instructor receives assignment/completion; active booked Members receive affected-session notices. |
 | How do you prevent duplicate notifications? | Observer registration avoids duplicate objects and a per-equipment set latches one preventative alert per cycle. |
 | How can equipment alert again later? | Completion clears the latch and sets the next threshold to current usage plus 100 hours. |
 | Why checked custom exceptions? | They make expected business failures explicit to callers and allow the console to report understandable errors. |
 | Why use `IllegalStateException` for transitions? | The request exists, but its current lifecycle state makes the operation invalid. |
-| What proves the code works? | 126 JUnit tests across 14 classes, including domain, service, Facade, console and integration paths, all pass. |
+| How do recurring sessions remain atomic? | BookingService validates every weekly candidate against normal rules and earlier candidates before it adds any occurrence to the repository. |
+| What proves the code works? | 142 JUnit tests across 14 classes pass with zero failures, errors and skips, including service, Facade, console and integration paths. |
 | Was an intentionally failing test committed? | No. Negative tests intentionally trigger an exception and pass only when `assertThrows` sees the correct type. |
 | What was a challenging defect? | Preventative alerts originally risked becoming once-ever; the final per-cycle threshold reset supports future cycles without duplicates. |
 | Why no database? | The brief permits hard-coded or in-memory data. Persistence is a documented future improvement. |
-| What remains limited? | No credential authentication, persistent transactions, weekly recurrence, concurrent booking protection or Member reminder publishing. |
+| What remains limited? | No credential authentication, persistent storage, transaction-safe concurrent booking, general calendar recurrence engine or durable external notification delivery. |
 | Why exactly 15 classes? | It meets the required 10-15 range. Nested enums stay with the entities they describe and add no source files. |
